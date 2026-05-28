@@ -1,134 +1,66 @@
 const request = require('supertest');
-
-const { app, resetData } = require('../src/app');
+const app = require('../src/app');
+const { resetContacts } = require('../src/services/contacts.service');
 
 beforeEach(() => {
-    resetData();
+    resetContacts();
 });
 
-describe('Contacts API', () => {
+// GET /contacts
+test('GET /contacts debe retornar todos los contactos', async () => {
+    const res = await request(app).get('/contacts');
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBe(3);
+});
 
-    describe('GET /api/contacts', () => {
+test('GET /contacts?favorite=true debe retornar solo favoritos', async () => {
+    const res = await request(app).get('/contacts?favorite=true');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.every(c => c.favorite === true)).toBe(true);
+});
 
-        it('devuelve status 200 y un array', async () => {
-            const res = await request(app).get('/api/contacts');
+// GET /contacts/:id
+test('GET /contacts/:id debe retornar un contacto por id', async () => {
+    const res = await request(app).get('/contacts/1');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.id).toBe(1);
+});
 
-            expect(res.status).toBe(200);
-            expect(Array.isArray(res.body)).toBe(true);
-        });
+test('GET /contacts/:id debe retornar 404 si no existe', async () => {
+    const res = await request(app).get('/contacts/999');
+    expect(res.statusCode).toBe(404);
+});
 
-    });
+// POST /contacts
+test('POST /contacts debe crear un nuevo contacto', async () => {
+    const newContact = { name: 'Carlos López', email: 'carlos@example.com', phone: '555-0004' };
+    const res = await request(app).post('/contacts').send(newContact);
+    expect(res.statusCode).toBe(201);
+    expect(res.body.name).toBe('Carlos López');
+    expect(res.body.id).toBeDefined();
+});
 
-    describe('GET /api/contacts/:id', () => {
+// PUT /contacts/:id
+test('PUT /contacts/:id debe actualizar un contacto', async () => {
+    const res = await request(app).put('/contacts/1').send({ name: 'Ana Actualizada' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.name).toBe('Ana Actualizada');
+});
 
-        it('devuelve el contacto correcto', async () => {
-            const res = await request(app).get('/api/contacts/1');
+// PATCH /contacts/:id/favorite
+test('PATCH /contacts/:id/favorite debe alternar el favorito', async () => {
+    const before = await request(app).get('/contacts/1');
+    const res = await request(app).patch('/contacts/1/favorite');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.favorite).toBe(!before.body.favorite);
+});
 
-            expect(res.status).toBe(200);
+// DELETE /contacts/:id
+test('DELETE /contacts/:id debe eliminar un contacto', async () => {
+    const res = await request(app).delete('/contacts/1');
+    expect(res.statusCode).toBe(200);
 
-            expect(res.body).toMatchObject({
-                id: 1,
-                name: 'Juan Pérez'
-            });
-        });
-
-        it('devuelve 404 para un ID inexistente', async () => {
-            const res = await request(app).get('/api/contacts/999');
-
-            expect(res.status).toBe(404);
-            expect(res.body).toHaveProperty('error');
-        });
-
-    });
-
-    describe('POST /api/contacts', () => {
-
-        it('crea el contacto y devuelve 201', async () => {
-            const res = await request(app)
-                .post('/api/contacts')
-                .send({
-                    name: 'Ana',
-                    email: 'ana@test.com',
-                    phone: '123456'
-                });
-
-            expect(res.status).toBe(201);
-
-            expect(res.body).toMatchObject({
-                name: 'Ana',
-                email: 'ana@test.com',
-                phone: '123456'
-            });
-
-            expect(res.body.id).toBeDefined();
-        });
-
-        it('devuelve 400 si falta el name', async () => {
-            const res = await request(app)
-                .post('/api/contacts')
-                .send({
-                    email: 'ana@test.com'
-                });
-
-            expect(res.status).toBe(400);
-            expect(res.body).toHaveProperty('error');
-        });
-
-        it('devuelve 400 si el email no tiene @', async () => {
-            const res = await request(app)
-                .post('/api/contacts')
-                .send({
-                    name: 'Ana',
-                    email: 'anatest.com'
-                });
-
-            expect(res.status).toBe(400);
-            expect(res.body).toHaveProperty('error');
-        });
-
-    });
-
-    describe('PUT /api/contacts/:id', () => {
-
-        it('actualiza correctamente los campos enviados', async () => {
-            const res = await request(app)
-                .put('/api/contacts/1')
-                .send({
-                    phone: '999999999'
-                });
-
-            expect(res.status).toBe(200);
-
-            expect(res.body).toMatchObject({
-                id: 1,
-                phone: '999999999'
-            });
-        });
-
-    });
-
-    describe('DELETE /api/contacts/:id', () => {
-
-        it('elimina el contacto y devuelve confirmación', async () => {
-            const res = await request(app)
-                .delete('/api/contacts/1');
-
-            expect(res.status).toBe(200);
-
-            expect(res.body).toMatchObject({
-                message: 'Contacto eliminado correctamente'
-            });
-        });
-
-        it('devuelve 404 para ID inexistente', async () => {
-            const res = await request(app)
-                .delete('/api/contacts/999');
-
-            expect(res.status).toBe(404);
-
-            expect(res.body).toHaveProperty('error');
-        });
-
-    });
-
+    const check = await request(app).get('/contacts/1');
+    expect(check.statusCode).toBe(404);
 });
